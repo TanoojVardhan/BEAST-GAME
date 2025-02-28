@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdmin } from '@/lib/adminContext';
-import { db, auth } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
 import { UserProfile, GameStats } from '@/types';
 import { AdminUserList } from '@/components/admin/user-list';
