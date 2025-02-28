@@ -11,7 +11,7 @@ interface AdminContextType {
 }
 
 // Define admin emails here - make sure these match what you're using in your application
-const ADMIN_EMAILS = ['admin@gitam.in', 'tgantasa@gitam.in'];
+const ADMIN_EMAILS = ['tgantasa@gitam.in', 'physicalfitness_vsp@gitam.in'];
 
 const AdminContext = createContext<AdminContextType>({
   isAdmin: false,
