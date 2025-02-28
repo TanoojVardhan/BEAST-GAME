@@ -56,7 +56,9 @@ export default function DashboardLayout({
     return () => unsubscribe();
   }, [router, isAdmin]);
 
+  /*
   useEffect(() => {
+    // Function to update the last active status of the user every 15 minutes
     const interval = setInterval(() => {
       const user = auth.currentUser;
       if (user) {
@@ -66,6 +68,7 @@ export default function DashboardLayout({
 
     return () => clearInterval(interval);
   }, []);
+  */
 
   const handleSignOut = async () => {
     try {
