@@ -1,8 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config, { isServer }) => {
+  webpack: (config: {
+    resolve: {
+      fallback: Record<string, boolean>;
+    };
+  }, { isServer }: { isServer: boolean }) => {
     // Add handling for Firebase modules
     if (!isServer) {
+      config.resolve = config.resolve || {};
       config.resolve.fallback = {
         ...config.resolve.fallback,
         "fs": false,
