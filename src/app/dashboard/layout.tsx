@@ -30,7 +30,7 @@ export default function DashboardLayout({
         if (!userDoc.exists() && !isAdmin) {
           router.push("/profile-setup");
           return;
-        } else if (userDoc.exists()) {
+        } else if (userDoc exists()) {
           // Set the user name if document exists
           setUserName(userDoc.data().name);
         } else if (isAdmin) {
@@ -70,6 +70,7 @@ export default function DashboardLayout({
   }, []);
   */
 
+  /*
   const handleSignOut = async () => {
     try {
       await auth.signOut();
@@ -78,6 +79,7 @@ export default function DashboardLayout({
       console.error("Error signing out:", error);
     }
   };
+  */
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -105,12 +107,14 @@ export default function DashboardLayout({
                 </Link>
               )}
             </div>
+            {/*
             <button
               onClick={handleSignOut}
               className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
             >
               Sign Out
             </button>
+            */}
           </div>
         </div>
       </header>
