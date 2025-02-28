@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, updateDoc, doc, serverTimestamp } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -19,5 +19,13 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and Firestore
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// Function to update last active time
+export const updateLastActive = async (userId: string) => {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    lastActive: serverTimestamp()
+  });
+};
 
 export { app, auth, db };

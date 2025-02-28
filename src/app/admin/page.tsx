@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdmin } from '@/lib/adminContext';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import { UserProfile, GameStats } from '@/types';
 import { AdminUserList } from '@/components/admin/user-list';
 import { AdminStats } from '@/components/admin/stats';
@@ -86,6 +87,15 @@ export default function AdminDashboard() {
     return () => unsubscribe();
   }, [isAdmin]);
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -97,23 +107,23 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <button
+            onClick={handleSignOut}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+          >
+            Sign Out
+          </button>
+        </div>
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             {error}
           </div>
         )}
-        
-        {/* Stats Overview */}
         <AdminStats stats={stats} />
-
-        {/* Game Access Management */}
         <AdminGameAccess users={users} />
-
-        {/* User List and Management */}
         <AdminUserList users={users} />
-        
         {users.length === 0 && !error && (
           <div className="p-6 text-center bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-700">No users found in the database. This could be due to:</p>

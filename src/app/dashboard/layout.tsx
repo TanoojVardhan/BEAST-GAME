@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, updateLastActive } from "@/lib/firebase";
 import { User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
@@ -55,6 +55,17 @@ export default function DashboardLayout({
 
     return () => unsubscribe();
   }, [router, isAdmin]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const user = auth.currentUser;
+      if (user) {
+        updateLastActive(user.uid);
+      }
+    }, 15 * 60 * 1000); // 15 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSignOut = async () => {
     try {
