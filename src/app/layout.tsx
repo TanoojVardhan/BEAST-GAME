@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Beast Games - Gitam",
   description: "Challenge yourself in the ultimate test of skill and strength",
+  icons: {
+    icon: '/GFF LOGO (1).png'
+  }
 };
 
 export default function RootLayout({
