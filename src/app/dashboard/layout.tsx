@@ -30,7 +30,7 @@ export default function DashboardLayout({
         if (!userDoc.exists() && !isAdmin) {
           router.push("/profile-setup");
           return;
-        } else if (userDoc exists()) {
+        } else if (userDoc.exists()) {
           // Set the user name if document exists
           setUserName(userDoc.data().name);
         } else if (isAdmin) {
