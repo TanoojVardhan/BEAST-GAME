@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { UserProfile, GameType } from "@/types";
 import { db } from "@/lib/firebase";
-import { collection, doc, updateDoc, writeBatch, getDocs } from "firebase/firestore";
+import { doc, updateDoc, writeBatch } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -250,8 +250,8 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
       <div className="mt-4 text-sm text-gray-500">
         <p>• Enable access to allow users to participate in specific games</p>
         <p>• Users with active games cannot change their selection unless reset</p>
-        <p>• "Grant All Access" enables all games for all users</p>
-        <p>• "Revoke All Access" removes access for all non-admin users</p>
+        <p>• &quot;Grant All Access&quot; enables all games for all users</p>
+        <p>• &quot;Revoke All Access&quot; removes access for all non-admin users</p>
       </div>
     </Card>
   );

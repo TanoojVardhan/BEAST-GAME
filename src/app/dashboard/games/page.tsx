@@ -37,7 +37,6 @@ export default function GamesPage() {
     mind: false,
     chance: false
   });
-  const [currentGame, setCurrentGame] = useState<GameType | null>(null);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
 
@@ -51,7 +50,6 @@ export default function GamesPage() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setGameAccess(userData.gameAccess || {});
-          setCurrentGame(userData.currentGame || null);
 
           // If user has already selected a game, redirect to confirmation
           if (userData.currentGame) {
@@ -107,7 +105,7 @@ export default function GamesPage() {
           <div className="mb-8 p-4 bg-yellow-600/20 border border-yellow-500/50 rounded-lg text-center">
             <h2 className="text-xl font-semibold mb-2 text-yellow-400">Action Required</h2>
             <p className="text-yellow-200">
-              You don't have access to any games yet. Please wait for an administrator to grant you access to participate.
+              You don&apos;t have access to any games yet. Please wait for an administrator to grant you access to participate.
               <br />
               Contact the organizers if you believe this is an error.
             </p>
