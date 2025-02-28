@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection rules
+    match /users/{userId} {
+      // Allow users to read and write their own documents
+      // Allow admins to read and write all user documents
+      allow read, write: if isAdmin() || request.auth.uid == userId;
+      
+      // Allow users to create their own documents during signup
+      allow create: if request.auth.uid == userId;
+    }
+    
+    // A special rule for admins to query all users
+    match /users/{allUsers=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

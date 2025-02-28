@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { GameType } from "@/types";
 
 const gameCategories = [
@@ -39,31 +39,59 @@ export default function GamesPage() {
   });
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkGameAccess = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setGameAccess(userData.gameAccess || {});
-
-          // If user has already selected a game, redirect to confirmation
-          if (userData.currentGame) {
-            router.push("/dashboard/games/confirmation");
-          }
-        }
-      } catch (error) {
-        console.error("Error checking game access:", error);
-      } finally {
-        setLoading(false);
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        router.push("/login");
+        return;
       }
-    };
+      
+      // Set up a real-time listener for the user document
+      const userDocRef = doc(db, "users", user.uid);
+      const unsubscribeSnapshot = onSnapshot(
+        userDocRef,
+        (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const userData = docSnapshot.data();
+            // Update game access in real-time
+            setGameAccess(userData.gameAccess || {
+              strength: false,
+              mind: false,
+              chance: false
+            });
+            
+            // If user has already selected a game, redirect to confirmation
+            if (userData.currentGame) {
+              router.push("/dashboard/games/confirmation");
+            }
 
-    checkGameAccess();
+            // Update user's last active time
+            updateDoc(userDocRef, {
+              lastActive: new Date().toISOString()
+            }).catch(err => console.error("Error updating last active time:", err));
+          } else {
+            // If user document doesn't exist, redirect to profile setup
+            router.push("/profile-setup");
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.error("Error getting user data:", err);
+          setError("Error loading game access. Please try again.");
+          setLoading(false);
+        }
+      );
+
+      return () => {
+        unsubscribeSnapshot();
+      };
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
   }, [router]);
 
   const handleGameClick = async (game: GameType) => {
@@ -82,6 +110,7 @@ export default function GamesPage() {
       router.push("/dashboard/games/confirmation");
     } catch (error) {
       console.error("Error updating current game:", error);
+      setError("Failed to select game. Please try again.");
       setSelecting(false);
     }
   };
@@ -91,7 +120,7 @@ export default function GamesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white p-8 flex items-center justify-center">
-        Loading...
+        <div className="animate-pulse">Loading your game options...</div>
       </div>
     );
   }
@@ -100,6 +129,12 @@ export default function GamesPage() {
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold mb-4 text-center">Choose Your Challenge</h1>
+        
+        {error && (
+          <div className="mb-8 p-4 bg-red-600/20 border border-red-500/50 rounded-lg text-center">
+            <p className="text-red-200">{error}</p>
+          </div>
+        )}
         
         {hasNoAccess && (
           <div className="mb-8 p-4 bg-yellow-600/20 border border-yellow-500/50 rounded-lg text-center">

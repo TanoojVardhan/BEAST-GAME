@@ -4,13 +4,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const ADMIN_EMAILS = ['admin@gitam.in', 'tgantasa@gitam.in']; // Admin emails
+import { ADMIN_EMAILS } from "@/lib/adminContext";
 
 export function ProfileSetupForm() {
   const router = useRouter();
@@ -37,22 +36,31 @@ export function ProfileSetupForm() {
 
       // Check if the user should be an admin
       const isAdmin = ADMIN_EMAILS.includes(userEmail || '');
+      console.log(`Creating profile for ${userEmail}, admin status: ${isAdmin}`);
+
+      // Check if the user already has a document (might have been created by admin context)
+      const userDoc = await getDoc(doc(db, "users", userId));
+      const existingData = userDoc.exists() ? userDoc.data() : null;
+
+      // If the user already has game access set, don't overwrite it
+      const gameAccess = existingData?.gameAccess || {
+        strength: isAdmin, // Admins get access to all games by default
+        mind: isAdmin,
+        chance: isAdmin
+      };
 
       await setDoc(doc(db, "users", userId), {
         ...formData,
         email: userEmail,
         role: isAdmin ? 'admin' : 'user',
-        gameAccess: {
-          strength: isAdmin, // Admins get access to all games by default
-          mind: isAdmin,
-          chance: isAdmin
-        },
-        currentGame: null,
+        gameAccess: gameAccess,
+        currentGame: existingData?.currentGame || null,
         lastActive: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
+        createdAt: existingData?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
 
+      console.log(`Profile created/updated successfully for ${userEmail}`);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);

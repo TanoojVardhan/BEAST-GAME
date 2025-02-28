@@ -1,29 +1,147 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserProfile, GameType } from "@/types";
 import { db } from "@/lib/firebase";
-import { doc, updateDoc, writeBatch } from "firebase/firestore";
+import { doc, updateDoc, writeBatch, getDoc, setDoc } from "firebase/firestore";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export function AdminGameAccess({ users }: { users: UserProfile[] }) {
   const [loading, setLoading] = useState(false);
+  const [localUsers, setLocalUsers] = useState<UserProfile[]>(users);
+  const [operationMessage, setOperationMessage] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [testUserCounter, setTestUserCounter] = useState(1);
+
+  useEffect(() => {
+    setLocalUsers(users);
+  }, [users]);
+
+  // Clear operation message after 5 seconds
+  useEffect(() => {
+    if (operationMessage) {
+      const timer = setTimeout(() => {
+        setOperationMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [operationMessage]);
+
+  // Function to create a test user for demonstration purposes
+  const createTestUser = async () => {
+    setLoading(true);
+    setOperationMessage(null);
+    try {
+      const testUserNumber = testUserCounter;
+      setTestUserCounter(prev => prev + 1);
+      
+      const timestamp = new Date().toISOString();
+      const testUserId = `test-user-${timestamp}-${testUserNumber}`;
+      
+      const testUserData: Omit<UserProfile, 'uid'> = {
+        name: `Test User ${testUserNumber}`,
+        email: `testuser${testUserNumber}@example.com`,
+        gitamEmail: `testuser${testUserNumber}@gitam.in`,
+        role: 'user',
+        mobileNumber: `999999${testUserNumber.toString().padStart(4, '0')}`,
+        branch: 'Computer Science',
+        year: '2',
+        registrationNumber: `REG${testUserNumber.toString().padStart(6, '0')}`,
+        gameAccess: {
+          strength: false,
+          mind: false,
+          chance: false
+        },
+        lastActive: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+      
+      await setDoc(doc(db, 'users', testUserId), testUserData);
+      
+      // Add the new user to the local state to avoid needing a refresh
+      setLocalUsers(prevUsers => [
+        ...prevUsers,
+        { uid: testUserId, ...testUserData }
+      ]);
+      
+      setOperationMessage({
+        type: 'success',
+        message: `Test user "${testUserData.name}" created successfully`
+      });
+    } catch (error) {
+      console.error('Error creating test user:', error);
+      setOperationMessage({
+        type: 'error',
+        message: `Error creating test user: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleGameAccess = async (userId: string, game: GameType) => {
     setLoading(true);
+    setOperationMessage(null);
     try {
       const userRef = doc(db, 'users', userId);
-      const user = users.find(u => u.uid === userId);
-      if (!user) return;
+      const user = localUsers.find(u => u.uid === userId);
+      if (!user) {
+        throw new Error(`User not found with ID: ${userId}`);
+      }
 
       // Toggle the access for the specific game
+      const newAccess = !user.gameAccess[game];
+      
+      console.log(`Updating ${game} access to ${newAccess} for user: ${user.name} (${userId})`);
+      
+      // Update in Firestore
       await updateDoc(userRef, {
-        [`gameAccess.${game}`]: !user.gameAccess[game],
+        [`gameAccess.${game}`]: newAccess,
         updatedAt: new Date().toISOString(),
       });
+      
+      // Update local state to reflect the change immediately
+      setLocalUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.uid === userId 
+            ? {
+                ...u,
+                gameAccess: {
+                  ...u.gameAccess,
+                  [game]: newAccess
+                }
+              }
+            : u
+        )
+      );
+      
+      // Verify the update was successful by fetching the latest data
+      const updatedUserDoc = await getDoc(userRef);
+      if (updatedUserDoc.exists()) {
+        const updatedData = updatedUserDoc.data();
+        const actualAccess = updatedData.gameAccess?.[game];
+        
+        if (actualAccess === newAccess) {
+          console.log(`Successfully verified ${game} access is now ${newAccess} for user: ${user.name}`);
+          setOperationMessage({
+            type: 'success',
+            message: `${game} access ${newAccess ? 'granted' : 'revoked'} for ${user.name}`
+          });
+        } else {
+          console.error(`Verification failed: Expected ${game} access to be ${newAccess} but got ${actualAccess}`);
+          setOperationMessage({
+            type: 'error',
+            message: `Failed to update ${game} access for ${user.name}. Database state mismatch.`
+          });
+        }
+      }
     } catch (error) {
       console.error('Error updating game access:', error);
+      setOperationMessage({
+        type: 'error',
+        message: `Error updating game access: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -31,14 +149,38 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
 
   const resetUserGame = async (userId: string) => {
     setLoading(true);
+    setOperationMessage(null);
     try {
       const userRef = doc(db, 'users', userId);
+      const user = localUsers.find(u => u.uid === userId);
+      if (!user) {
+        throw new Error(`User not found with ID: ${userId}`);
+      }
+      
       await updateDoc(userRef, {
         currentGame: null,
         updatedAt: new Date().toISOString(),
       });
+      
+      // Update local state
+      setLocalUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.uid === userId 
+            ? { ...u, currentGame: undefined }
+            : u
+        )
+      );
+      
+      setOperationMessage({
+        type: 'success',
+        message: `Game reset successful for ${user.name}`
+      });
     } catch (error) {
       console.error('Error resetting user game:', error);
+      setOperationMessage({
+        type: 'error',
+        message: `Error resetting game: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -50,9 +192,17 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
     }
     
     setLoading(true);
+    setOperationMessage(null);
     try {
       const batch = writeBatch(db);
-      const userRefs = users.filter(u => u.role !== 'admin').map(user => doc(db, 'users', user.uid));
+      const nonAdminUsers = localUsers.filter(u => u.role !== 'admin');
+      const userRefs = nonAdminUsers.map(user => doc(db, 'users', user.uid));
+      
+      if (userRefs.length === 0) {
+        throw new Error('No non-admin users found to update');
+      }
+      
+      console.log(`Revoking access for ${userRefs.length} users`);
       
       userRefs.forEach(userRef => {
         batch.update(userRef, {
@@ -64,8 +214,33 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
       });
 
       await batch.commit();
+      
+      // Update local state
+      setLocalUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.role !== 'admin' 
+            ? {
+                ...u,
+                gameAccess: {
+                  strength: false,
+                  mind: false,
+                  chance: false
+                }
+              }
+            : u
+        )
+      );
+      
+      setOperationMessage({
+        type: 'success',
+        message: `Access revoked for all ${userRefs.length} users`
+      });
     } catch (error) {
       console.error('Error revoking all access:', error);
+      setOperationMessage({
+        type: 'error',
+        message: `Error revoking access: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setLoading(false);
     }
@@ -78,9 +253,17 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
     }
     
     setLoading(true);
+    setOperationMessage(null);
     try {
       const batch = writeBatch(db);
-      const userRefs = users.filter(u => u.role !== 'admin').map(user => doc(db, 'users', user.uid));
+      const nonAdminUsers = localUsers.filter(u => u.role !== 'admin');
+      const userRefs = nonAdminUsers.map(user => doc(db, 'users', user.uid));
+      
+      if (userRefs.length === 0) {
+        throw new Error('No non-admin users found to update');
+      }
+      
+      console.log(`Granting access for ${userRefs.length} users`);
       
       userRefs.forEach(userRef => {
         batch.update(userRef, {
@@ -92,20 +275,45 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
       });
 
       await batch.commit();
+      
+      // Update local state
+      setLocalUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.role !== 'admin' 
+            ? {
+                ...u,
+                gameAccess: {
+                  strength: true,
+                  mind: true,
+                  chance: true
+                }
+              }
+            : u
+        )
+      );
+      
+      setOperationMessage({
+        type: 'success',
+        message: `Access granted for all ${userRefs.length} users`
+      });
     } catch (error) {
       console.error('Error granting all access:', error);
+      setOperationMessage({
+        type: 'error',
+        message: `Error granting access: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setLoading(false);
     }
   };
 
   // Get the count of users with any game access
-  const usersWithAccess = users.filter(user => 
+  const usersWithAccess = localUsers.filter(user => 
     user.gameAccess.strength || user.gameAccess.mind || user.gameAccess.chance
   ).length;
 
   // Get the count of users without any game access
-  const usersWithoutAccess = users.filter(user => 
+  const usersWithoutAccess = localUsers.filter(user => 
     !user.gameAccess.strength && !user.gameAccess.mind && !user.gameAccess.chance && user.role !== 'admin'
   ).length;
 
@@ -138,6 +346,16 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
           Enable or disable access to specific games for each user. Users can only participate in games they have access to.
         </p>
         
+        {operationMessage && (
+          <div className={`mb-4 p-4 rounded-md ${
+            operationMessage.type === 'success' 
+              ? 'bg-green-50 border border-green-200 text-green-700' 
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            {operationMessage.message}
+          </div>
+        )}
+        
         {usersWithoutAccess > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
             <div className="flex items-center">
@@ -161,6 +379,25 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
                 {usersWithAccess} user{usersWithAccess !== 1 ? 's' : ''} have game access
               </span>
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6">
+        {localUsers.length === 0 && (
+          <div className="text-center p-6 bg-gray-50 rounded-md border border-gray-200">
+            <p className="mb-4 text-gray-600">No users found. Users will appear here after they sign up.</p>
+            <Button
+              onClick={createTestUser}
+              disabled={loading}
+              variant="outline"
+              className="bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
+            >
+              Create Test User (For Demo Only)
+            </Button>
+            <p className="mt-2 text-xs text-gray-500">
+              This will create a test user in the database to demonstrate the game access functionality.
+            </p>
           </div>
         )}
       </div>
@@ -193,56 +430,65 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => {
-              const hasAnyAccess = Object.values(user.gameAccess).some(access => access);
-              const isLoggedIn = user.lastActive && 
-                (new Date().getTime() - new Date(user.lastActive).getTime() < 10 * 60 * 1000);
-              
-              return (
-                <tr key={user.uid} className={hasAnyAccess ? "bg-blue-50" : ""}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                    <div className="text-sm text-gray-500">{user.gitamEmail}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm ${user.currentGame ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
-                      {user.currentGame || 'None'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      isLoggedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      <span className={`h-2 w-2 rounded-full mr-1 ${isLoggedIn ? 'bg-green-400' : 'bg-gray-400'}`}></span>
-                      {isLoggedIn ? 'Online' : 'Offline'}
-                    </div>
-                  </td>
-                  {['strength', 'mind', 'chance'].map((game) => (
-                    <td key={game} className="px-6 py-4 whitespace-nowrap">
+            {localUsers.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  No users found. Users will appear here after they sign up or you create test users.
+                </td>
+              </tr>
+            ) : (
+              localUsers.map((user) => {
+                const hasAnyAccess = Object.values(user.gameAccess).some(access => access);
+                const isLoggedIn = user.lastActive && 
+                  (new Date().getTime() - new Date(user.lastActive).getTime() < 10 * 60 * 1000);
+                
+                return (
+                  <tr key={user.uid} className={hasAnyAccess ? "bg-blue-50" : ""}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                      <div className="text-sm text-gray-500">{user.gitamEmail}</div>
+                      <div className="text-xs text-gray-400">{user.role}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`text-sm ${user.currentGame ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
+                        {user.currentGame || 'None'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        isLoggedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        <span className={`h-2 w-2 rounded-full mr-1 ${isLoggedIn ? 'bg-green-400' : 'bg-gray-400'}`}></span>
+                        {isLoggedIn ? 'Online' : 'Offline'}
+                      </div>
+                    </td>
+                    {['strength', 'mind', 'chance'].map((game) => (
+                      <td key={game} className="px-6 py-4 whitespace-nowrap">
+                        <Button
+                          variant={user.gameAccess[game as GameType] ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleGameAccess(user.uid, game as GameType)}
+                          disabled={loading || user.role === 'admin'}
+                          className={user.gameAccess[game as GameType] ? 'bg-green-600 hover:bg-green-700' : ''}
+                        >
+                          {user.gameAccess[game as GameType] ? 'Enabled' : 'Disabled'}
+                        </Button>
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <Button
-                        variant={user.gameAccess[game as GameType] ? "default" : "outline"}
+                        variant="destructive"
                         size="sm"
-                        onClick={() => toggleGameAccess(user.uid, game as GameType)}
-                        disabled={loading || user.role === 'admin'}
-                        className={user.gameAccess[game as GameType] ? 'bg-green-600 hover:bg-green-700' : ''}
+                        onClick={() => resetUserGame(user.uid)}
+                        disabled={loading || user.role === 'admin' || !user.currentGame}
                       >
-                        {user.gameAccess[game as GameType] ? 'Enabled' : 'Disabled'}
+                        Reset Game
                       </Button>
                     </td>
-                  ))}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => resetUserGame(user.uid)}
-                      disabled={loading || user.role === 'admin' || !user.currentGame}
-                    >
-                      Reset Game
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

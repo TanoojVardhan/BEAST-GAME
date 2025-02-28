@@ -10,6 +10,7 @@ interface AdminContextType {
   checkIsAdmin: (email: string | null) => Promise<boolean>;
 }
 
+// Define admin emails here - make sure these match what you're using in your application
 const ADMIN_EMAILS = ['admin@gitam.in', 'tgantasa@gitam.in'];
 
 const AdminContext = createContext<AdminContextType>({
@@ -22,22 +23,52 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper for checking if an email is in the admin list
   const checkIsAdmin = async (email: string | null): Promise<boolean> => {
     if (!email) return false;
-    return ADMIN_EMAILS.includes(email);
+    const isAdminEmail = ADMIN_EMAILS.includes(email);
+    console.log(`Checking admin status for ${email}: ${isAdminEmail ? 'Is admin' : 'Not admin'}`);
+    return isAdminEmail;
   };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        console.log(`User authenticated: ${user.email}`);
         // First check if the email is in the admin list
-        const adminStatus = await checkIsAdmin(user.email);
+        const adminByEmail = await checkIsAdmin(user.email);
         
         try {
+          // Check if user has a profile in Firestore
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           
-          // If user is an admin but doesn't have a profile yet, create a basic one
-          if (adminStatus && !userDoc.exists()) {
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const isAdminRole = userData.role === 'admin';
+            
+            console.log(`User ${user.email} exists in Firestore with role: ${userData.role}`);
+            
+            // Use role from Firestore if it exists
+            setIsAdmin(isAdminRole);
+            
+            // If the user should be an admin by email but isn't marked in Firestore, update it
+            if (adminByEmail && !isAdminRole) {
+              console.log(`Upgrading ${user.email} to admin role in Firestore`);
+              await setDoc(doc(db, 'users', user.uid), {
+                ...userData,
+                role: 'admin',
+                gameAccess: {
+                  strength: true,
+                  mind: true,
+                  chance: true
+                },
+                updatedAt: new Date().toISOString(),
+              });
+              setIsAdmin(true);
+            }
+          } else if (adminByEmail) {
+            // If the user is an admin by email but doesn't have a profile yet, create a basic one
+            console.log(`Creating new admin profile for ${user.email}`);
             await setDoc(doc(db, 'users', user.uid), {
               name: user.displayName || 'Admin User',
               email: user.email,
@@ -59,13 +90,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             
             setIsAdmin(true);
           } else {
-            setIsAdmin(userDoc.data()?.role === 'admin');
+            // Not an admin
+            setIsAdmin(false);
           }
         } catch (error) {
           console.error('Error checking admin status:', error);
-          setIsAdmin(adminStatus); // Fall back to email check if database fails
+          // Fall back to email check if database fails
+          setIsAdmin(adminByEmail);
         }
       } else {
+        console.log('No user authenticated');
         setIsAdmin(false);
       }
       setIsLoading(false);

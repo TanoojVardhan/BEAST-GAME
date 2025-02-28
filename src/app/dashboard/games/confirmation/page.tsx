@@ -11,16 +11,31 @@ const gameDetails = {
     title: "Game of Strength",
     color: "text-red-500",
     bgGradient: "from-red-500 to-red-700",
+    rules: [
+      "Rule 1: Complete the physical challenges.",
+      "Rule 2: Maintain proper form.",
+      "Rule 3: Stay hydrated.",
+    ],
   },
   mind: {
     title: "Mind Games",
     color: "text-blue-500",
     bgGradient: "from-blue-500 to-blue-700",
+    rules: [
+      "Rule 1: Solve the puzzles.",
+      "Rule 2: Use logic and strategy.",
+      "Rule 3: Work within the time limit.",
+    ],
   },
   chance: {
     title: "Game of Chance",
     color: "text-green-500",
     bgGradient: "from-green-500 to-green-700",
+    rules: [
+      "Rule 1: Take calculated risks.",
+      "Rule 2: Trust your instincts.",
+      "Rule 3: Enjoy the game.",
+    ],
   },
 };
 
@@ -95,6 +110,15 @@ export default function GameConfirmationPage() {
             <li>• Your game selection is now locked</li>
             <li>• You cannot change your selection unless an admin resets it</li>
             <li>• Contact the organizers if you need any assistance</li>
+          </ul>
+        </div>
+
+        <div className="bg-gray-800 p-8 rounded-lg shadow-xl mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Game Rules</h2>
+          <ul className="text-left space-y-4 text-gray-300">
+            {game.rules.map((rule, index) => (
+              <li key={index}>• {rule}</li>
+            ))}
           </ul>
         </div>
 
