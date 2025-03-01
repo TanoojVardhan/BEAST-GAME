@@ -413,9 +413,6 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
                 Current Game
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Login Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Strength
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -432,15 +429,13 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
           <tbody className="bg-white divide-y divide-gray-200">
             {localUsers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                   No users found. Users will appear here after they sign up or you create test users.
                 </td>
               </tr>
             ) : (
               localUsers.map((user) => {
                 const hasAnyAccess = Object.values(user.gameAccess).some(access => access);
-                const isLoggedIn = user.lastActive && 
-                  (new Date().getTime() - new Date(user.lastActive).getTime() < 10 * 60 * 1000);
                 
                 return (
                   <tr key={user.uid} className={hasAnyAccess ? "bg-blue-50" : ""}>
@@ -453,14 +448,6 @@ export function AdminGameAccess({ users }: { users: UserProfile[] }) {
                       <span className={`text-sm ${user.currentGame ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
                         {user.currentGame || 'None'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        isLoggedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        <span className={`h-2 w-2 rounded-full mr-1 ${isLoggedIn ? 'bg-green-400' : 'bg-gray-400'}`}></span>
-                        {isLoggedIn ? 'Online' : 'Offline'}
-                      </div>
                     </td>
                     {['strength', 'mind', 'chance'].map((game) => (
                       <td key={game} className="px-6 py-4 whitespace-nowrap">

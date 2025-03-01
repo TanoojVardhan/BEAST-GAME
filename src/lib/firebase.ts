@@ -20,12 +20,4 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Function to update last active time
-export const updateLastActive = async (userId: string) => {
-  const userRef = doc(db, 'users', userId);
-  await updateDoc(userRef, {
-    lastActive: serverTimestamp()
-  });
-};
-
 export { app, auth, db };
